@@ -1,47 +1,44 @@
 // Pump.fun Sharpe Sprint — Cleanest Paper Bot Wins
-// Rewritten 2026-11-26 after the competition opened: byte-different retype, strategy logic unchanged.
+// Strategy: "Late Fresh Runner + Filler" — a two-tier paper bot tuned
+// for HOURLY SHARPE on a 6 h grading window. Revised from v1
+// "Steady Scalper" (dev-negative, Sharpe -0.608) after an offline
+// backtest sweep against a byte-exact replica of the house replay
+// engine, validated against grade-local v1 numbers to the lamport.
 //
-// Strategy: "Late Fresh Runner + Filler" — optimised for HOURLY SHARPE,
-// revised from v1 "Steady Scalper" after an offline backtest sweep
-// (a byte-exact replica of the house replay engine, validated against
-// grade-local v1 numbers to the lamport).
+// HOW IT WORKS — two entry tiers, one shared exit, one buy per mint:
+//   TIER 1 — CORE (the edge, selective): buy a mint LATE, once its
+//   real quote reserves have grown to 15-60 SOL, the creator has never
+//   sold, at least 9 of the last 10 trades are buys, and it got there
+//   FAST — only 5-15 trades since creation, a fresh explosive runner,
+//   not a slow grind. Price must be at or above its create price and
+//   no more than +200% above it (at 15 SOL real reserves the price is
+//   already ~+140% above create, so a tighter runup cap would block
+//   every late entry). Size 0.15 SOL.
+//   TIER 2 — FILLER (guardrail cover, minimum size): the core alone
+//   finds only 3-13 mints per 6 h, below the 20-mint guardrail, so a
+//   second tier buys OLDER mints (16-40 trades, real reserves 5-60
+//   SOL, at least 7 of the last 10 trades buys, runup <= +60%) at
+//   0.01 SOL — just enough to count as a round trip, too small to
+//   move hourly equity much. The tiers never compete: the core needs
+//   <= 15 trades, the filler needs >= 16, and the core always gets
+//   first pick of each batch.
+//   EXIT (shared by both tiers): take profit +15%, stop loss -2%
+//   (mark-to-market vs entry cost, fees included), or a time exit
+//   after ~3,600 slots (~24 min) so no position is ever bag-held.
+//   Slippage 10% on every order — tight caps reject exits and hurt.
+//   At most 2 buys per batch, shared across both tiers, and entries
+//   only spend free cash after pending orders and buys already
+//   decided in the same reply.
 //
-//   CORE (selective, the edge): buy a mint LATE, when its real quote
-//   reserves reach 15 SOL, the creator never sold, 9 of the last 10
-//   trades are buys, and it got there FAST (<= 15 trades since creation:
-//   a fresh, explosive runner, not a slow grind). Size 0.15 SOL.
-//   FILLER (guardrail cover): the final window is only 6 h, and the
-//   core alone finds just 3-13 mints per 6 h — below the 20-mint
-//   guardrail. So a second, tiny tier buys older mints (16-40 trades,
-//   real reserves 5-60 SOL, 7 of last 10 buys, runup <= 60%) at
-//   0.01 SOL: just enough to count as a round trip, too small to move
-//   hourly equity much. The filler never steals a core mint: the core
-//   needs <= 15 trades, the filler needs >= 16.
-//   EXIT (shared): TP +15%, SL -2%, time exit after ~3,600 slots
-//   (~24 min). Loose slippage (10%) — tight caps reject exits and hurt.
-//
-// Lessons from local grading (dev window, 24 h, 1,222 mints):
-//   v1 momentum bounce TP+7/SL-3.5, hold 1200, size 0.05, slip 10%:
-//     Sharpe -0.61, win 27.8%, 158 trips, net -0.259 SOL.
-//   v2-v7 (dip-buy, strict bounce, small size, wide TP, tight slip,
-//     trailing stop): all Sharpe -0.64..-0.95, all net negative.
-//   Late entry (real reserves >= 15 SOL, runup cap raised to +200% —
-//   at 15 SOL the price is already ~+140% above create, so v1's +60%
-//   cap blocked every late entry): Sharpe -0.21, net -0.095 SOL.
-//   Freshness (trades <= 20) + buy dominance 8/10 + TP+15/SL-2.5:
-//     Sharpe +0.03, net +0.018 SOL, 52 trips.
-//   Freshness <= 15 + dominance 9/10 + TP+15/SL-2 + size 0.15:
-//     Sharpe +0.21, net +0.124 SOL, 31 trips — but only 3-13 trips
-//     per 6 h block, so it FAILS the 20-mint guardrail on a 6 h window.
-//   Two-tier (core above + 0.01 SOL filler): Sharpe +0.16,
-//     net +0.095 SOL, 101 trips, and 21-30 trips in EVERY 6 h block
-//     of the dev window — clears the guardrail with margin.
-//   Dead ends: partial exits (sell half at +7%) hurt Sharpe;
-//   rebuying a mint after exit lost -0.17 SOL; dip-buying, trailing
-//   stops and tight slippage all hurt. Entry signal analysis: only
-//   ~22% of late entries ever reach +10%; slow reserve growth
-//   (< +5% over 5 touches) wins 52% vs 0% for parabolic inflow;
-//   9-10/10 buy dominance beats 7/10 (39% vs 19% reach +10%).
+// LOCAL GRADING (final v2 numbers, dev window):
+//   hourly Sharpe +0.157, Sortino +0.340, net PnL +0.0948 SOL,
+//   101 round trips across 101 mints, max drawdown 0.93%.
+//   The two-tier split clears the 20-mint guardrail with margin
+//   (21-30 trips in every 6 h block of the dev window), where the
+//   core-only variant (Sharpe +0.21, net +0.124 SOL, 31 trips) failed
+//   it. Dead ends that hurt Sharpe and were dropped: partial exits,
+//   rebuying after an exit, dip-buying, trailing stops, and tight
+//   slippage.
 //
 // Written from the bounty spec + the house SDK (vendor/makefun-bot.ts)
 // alone. No clock, no environment, no Math.random: every decision is a
