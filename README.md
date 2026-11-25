@@ -1,4 +1,4 @@
-# Pump.fun Sharpe Sprint — Steady Scalper
+# Pump.fun Sharpe Sprint — Late Fresh Runner + Filler
 
 [![make.fun](https://make.fun/badge/u-jackxyz72-pump-fun-sharpe-sprint-cleanest-03e4f532.svg)](https://make.fun/competitions/u-jackxyz72-pump-fun-sharpe-sprint-cleanest-03e4f532)
 [![Rank](https://make.fun/badge/u-jackxyz72-pump-fun-sharpe-sprint-cleanest-03e4f532/feriyansyahlubis/pump-fun-sharpe-sprint/rank.svg)](https://make.fun/competitions/u-jackxyz72-pump-fun-sharpe-sprint-cleanest-03e4f532)
